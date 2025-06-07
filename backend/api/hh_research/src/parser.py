@@ -132,6 +132,21 @@ class Settings:
 		parser.add_argument(
 			"-u", "--update", action="store_true", default=None, help="Save command line args to file in JSON format.",
 		)
+		parser.add_argument(
+			"--salary_from", type=int, default=None, help="Минимальная зарплата (фильтр)"
+		)
+		parser.add_argument(
+			"--salary_to", type=int, default=None, help="Максимальная зарплата (фильтр)"
+		)
+		parser.add_argument(
+			"--experience", type=str, default=None, help="Опыт работы (фильтр, например: 'Нет опыта', '1–3 года')"
+		)
+		parser.add_argument(
+			"--key_skills", nargs='*', type=str, default=None, help="Ключевые навыки (фильтр, через пробел)"
+		)
+		parser.add_argument(
+			"--limit", type=int, default=None, help="Лимит количества вакансий"
+		)
 		
 		params, unknown = parser.parse_known_args(inputs_args)
 		# Update config from command line

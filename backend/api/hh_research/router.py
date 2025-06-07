@@ -17,23 +17,12 @@ async def get_vacancies(
 		),
 		refresh: bool = Query(False, description="Обновление кешируемых данных")
 ):
-	hh_analyzer = ResearcherHH(
-		options={
-			"text": text,
-			"area": area,
-			"per_page": per_page,
-			"professional_roles": professional_roles
-		},
-		refresh=refresh,
-		num_workers=10,
-		save_result=True,
-		rates={
-			"USD": 0.012641,
-			"EUR": 0.010831,
-			"UAH": 0.35902,
-			"RUR": 1 # Не меняйте на RUB, т.к. это не валюта, а код валюты
-		}
-	)
+	hh_analyzer = ResearcherHH(options={
+		"text": text,
+		"area": area,
+		"per_page": per_page,
+		"professional_roles": professional_roles
+	}, refresh=refresh, )
 	hh_analyzer.update()
 	hh_analyzer()
 	return hh_analyzer.get_vacancies(limit=500)

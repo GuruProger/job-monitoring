@@ -139,7 +139,14 @@ class DataCollector:
 
         return urlencode(query)
 
-    def collect_vacancies(self, query: Optional[Dict], refresh: bool = False, num_workers: int = 1) -> Dict:
+    def collect_vacancies(
+        self,
+        query: Optional[Dict],
+        refresh: bool = False,
+        num_workers: int = 1,
+        filters: Optional[Dict] = None,
+        limit: Optional[int] = None
+    ) -> Dict:
         """Parse vacancy JSON: get vacancy name, salary, experience etc.
 
         Parameters
@@ -150,6 +157,10 @@ class DataCollector:
             Refresh cached data
         num_workers :  int
             Number of workers for threading.
+        filters : dict
+            Фильтры для вакансий (название, зарплата, опыт, навыки).
+        limit : int
+            Лимит количества вакансий.
 
         Returns
         -------
@@ -197,9 +208,45 @@ class DataCollector:
             ):
                 jobs_list.append(vacancy)
 
+        # Фильтрация вакансий
+        if filters:
+            def vacancy_filter(vac):
+                # vac: (id, name, employer, salary_bool, from, to, experience, schedule, keys, description)
+                name, from_, to_, experience, keys = vac[1], vac[4], vac[5], vac[6], vac[8]
+                # Фильтр по названию
+                if filters.get("name") and filters["name"].lower() not in name.lower():
+                    return False
+                # Фильтр по вилке зп
+                salary_from = filters.get("salary_from")
+                salary_to = filters.get("salary_to")
+                if salary_from is not None and (from_ is None or from_ < salary_from):
+                    return False
+                if salary_to is not None and (to_ is None or to_ > salary_to):
+                    return False
+                # Фильтр по опыту
+                if filters.get("experience") and filters["experience"].lower() not in experience.lower():
+                    return False
+                # Фильтр по ключевым навыкам
+                if filters.get("key_skills"):
+                    required_skills = set(map(str.lower, filters["key_skills"]))
+                    vacancy_skills = set(map(str.lower, keys))
+                    if not required_skills.issubset(vacancy_skills):
+                        return False
+                return True
+
+            jobs_list = list(filter(vacancy_filter, jobs_list))
+
+        # Лимит вакансий
+        if limit is not None:
+            jobs_list = jobs_list[:limit]
+
+        if not jobs_list:
+            return {k: [] for k in self.__DICT_KEYS}
+
         unzipped_list = list(zip(*jobs_list))
 
         result = {}
+        
         for idx, key in enumerate(self.__DICT_KEYS):
             result[key] = unzipped_list[idx]
 

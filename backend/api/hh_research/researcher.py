@@ -36,7 +36,7 @@ OR CORRECTION.
 
 ------------------------------------------------------------------------
 """
-
+import json
 # Authors       : Alexander Kapitanov
 # ...
 # Contacts      : <empty>
@@ -58,15 +58,22 @@ class ResearcherHH:
 	"""Main class for searching vacancies and analyze them."""
 	
 	def __init__(
-			self, options: dict, refresh: bool, num_workers: int, save_result: bool, rates: dict
+			self, options: dict, refresh: bool = True, num_workers: int = 10, save_result: bool = True,
+			rates: dict = {
+				"USD": 0.012641,
+				"EUR": 0.010831,
+				"UAH": 0.35902,
+				"RUR": 1  # Не меняйте на RUB, т.к. это не валюта, а код валюты
+			},
 	):
 		self.settings = Settings(
 			options=options, refresh=refresh, num_workers=num_workers, save_result=save_result, rates=rates
 		)
-		self.exchanger = Exchanger()
-		self.collector: Optional[DataCollector] = None
-		self.analyzer: Optional[Analyzer] = None
-		self.predictor = Predictor()
+	
+	self.exchanger = Exchanger()
+	self.collector: Optional[DataCollector] = None
+	self.analyzer: Optional[Analyzer] = None
+	self.predictor = Predictor()
 	
 	def update(self, **kwargs):
 		self.settings.update_params(**kwargs)
@@ -78,21 +85,21 @@ class ResearcherHH:
 		self.collector = DataCollector(self.settings.rates)
 		self.analyzer = Analyzer(self.settings.save_result)
 	
-	def get_vacancies(self, limit: Optional[int] = 500):
-		"""Возвращает данные вакансий в формате JSON с ограничением по количеству."""
+	def get_vacancies(self, limit: Optional[int] = 500, filters: Optional[dict] = None):
+		"""Возвращает данные вакансий в формате dict (JSON) с ограничением по количеству и фильтрами."""
 		print("[INFO]: Сбор данных для JSON...")
 		vacancies = self.collector.collect_vacancies(
-			query=self.settings.options, refresh=self.settings.refresh, num_workers=self.settings.num_workers
+			query=self.settings.options,
+			refresh=self.settings.refresh,
+			num_workers=self.settings.num_workers,
+			filters=filters,
+			limit=limit
 		)
 		print("[INFO]: Подготовка DataFrame...")
 		df = self.analyzer.prepare_df(vacancies)
-		
-		if limit is not None:
-			df = df.head(limit)  # Ограничиваем количество строк в DataFrame
-		
-		json_data = df.to_json(orient="records", indent=4, force_ascii=False)
+		json_data = df.to_json(orient="records", force_ascii=False)
 		print("[INFO]: Данные подготовлены в формате JSON.")
-		return json_data
+		return json.loads(json_data)
 	
 	def __call__(self):
 		print("[INFO]: Collect data from JSON. Create list of vacancies...")
@@ -111,22 +118,10 @@ class ResearcherHH:
 
 
 if __name__ == "__main__":
-	hh_analyzer = ResearcherHH(
-		options={
-			"text": "Python",
-			"area": 1,
-			"per_page": 10,
-			"professional_roles": [96, 10]
-		},
-		refresh=False,
-		num_workers=10,
-		save_result=True,
-		rates={
-			"USD": 0.012641,
-			"EUR": 0.010831,
-			"UAH": 0.35902,
-			"RUR": 1
-		}
-	)
+	hh_analyzer = ResearcherHH(options={
+		"text": "Python",
+		"area": 1,
+		"per_page": 10,
+	})
 	hh_analyzer.update()
 	hh_analyzer()
