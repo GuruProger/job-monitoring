@@ -47,14 +47,9 @@ class Exchanger:
 			new_rates = response.json()["rates"]
 		except requests.exceptions.SSLError:
 			raise AssertionError("[FAIL] Cannot get exchange rate! Try later or change the host API")
-		
+
 		for curr in rates:
 			rates[curr] = new_rates[curr]
-
-
-if __name__ == "__main__":
-	_exchanger = Exchanger("../settings.json")
-	_default = {"RUB": None, "USD": None, "EUR": None, "UAH": None}
-	_exchanger.update_exchange_rates(_default)
-	for _k, _v in _default.items():
-		print(f"{_k}: {_v :.05f}")
+		
+		# Change 'RUB' to 'RUR'
+		rates["RUR"] = rates.pop("RUB")

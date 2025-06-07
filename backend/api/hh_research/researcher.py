@@ -45,14 +45,13 @@ OR CORRECTION.
 import os
 from typing import Optional
 
-from src.analyzer import Analyzer
-from src.currency_exchange import Exchanger
-from src.data_collector import DataCollector
-from src.parser import Settings
-from src.predictor import Predictor
+from .src.analyzer import Analyzer
+from .src.currency_exchange import Exchanger
+from .src.data_collector import DataCollector
+from .src.parser import Settings
+from .src.predictor import Predictor
 
 CACHE_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "cache")
-SETTINGS_PATH = "settings.json"
 
 
 class ResearcherHH:
@@ -79,7 +78,7 @@ class ResearcherHH:
 		self.collector = DataCollector(self.settings.rates)
 		self.analyzer = Analyzer(self.settings.save_result)
 	
-	def get_json(self, limit: Optional[int] = 500):
+	def get_vacancies(self, limit: Optional[int] = 500):
 		"""Возвращает данные вакансий в формате JSON с ограничением по количеству."""
 		print("[INFO]: Сбор данных для JSON...")
 		vacancies = self.collector.collect_vacancies(
@@ -103,7 +102,6 @@ class ResearcherHH:
 		print("[INFO]: Prepare dataframe...")
 		df = self.analyzer.prepare_df(vacancies)
 		# df.to_csv(os.path.join(CACHE_DIR, "vacancies.csv"))
-		# json_data = df.to_json(orient="records", indent=4, force_ascii=False)
 		print("\n[INFO]: Analyze dataframe...")
 		self.analyzer.analyze_df(df)
 		print("\n[INFO]: Predict None salaries...")
@@ -117,17 +115,17 @@ if __name__ == "__main__":
 		options={
 			"text": "Python",
 			"area": 1,
-			"per_page": 50,
+			"per_page": 10,
 			"professional_roles": [96, 10]
 		},
 		refresh=False,
 		num_workers=10,
-		save_result=False,
+		save_result=True,
 		rates={
 			"USD": 0.012641,
 			"EUR": 0.010831,
 			"UAH": 0.35902,
-			"RUB": 1
+			"RUR": 1
 		}
 	)
 	hh_analyzer.update()
