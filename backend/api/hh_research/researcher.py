@@ -37,13 +37,19 @@ OR CORRECTION.
 ------------------------------------------------------------------------
 """
 import json
+import base64
+import io
 # Authors       : Alexander Kapitanov
 # ...
 # Contacts      : <empty>
 # License       : GNU GENERAL PUBLIC LICENSE
 
 import os
-from typing import Optional
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from typing import Optional, Dict, List, Union, Tuple, Any
+import numbers
 
 from .src.analyzer import Analyzer
 from .src.currency_exchange import Exchanger
@@ -52,6 +58,23 @@ from .src.parser import Settings
 from .src.predictor import Predictor
 
 CACHE_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "cache")
+
+
+def _to_builtin_type(obj: Any) -> Any:
+	"""Рекурсивно преобразует numpy-типы к стандартным python-типам."""
+	if isinstance(obj, dict):
+		return {k: _to_builtin_type(v) for k, v in obj.items()}
+	elif isinstance(obj, (list, tuple)):
+		return [ _to_builtin_type(v) for v in obj ]
+	elif isinstance(obj, (np.integer, np.int_, np.intc, np.intp, np.int8, np.int16, np.int32, np.int64)):
+		return int(obj)
+	# Исправлено: np.float_ заменено на np.float64
+	elif isinstance(obj, (np.floating, np.float16, np.float32, np.float64)):
+		return float(obj)
+	elif isinstance(obj, np.ndarray):
+		return obj.tolist()
+	else:
+		return obj
 
 
 class ResearcherHH:
@@ -70,10 +93,10 @@ class ResearcherHH:
 			options=options, refresh=refresh, num_workers=num_workers, save_result=save_result, rates=rates
 		)
 	
-	self.exchanger = Exchanger()
-	self.collector: Optional[DataCollector] = None
-	self.analyzer: Optional[Analyzer] = None
-	self.predictor = Predictor()
+		self.exchanger = Exchanger()
+		self.collector: Optional[DataCollector] = None
+		self.analyzer: Optional[Analyzer] = None
+		self.predictor = Predictor()
 	
 	def update(self, **kwargs):
 		self.settings.update_params(**kwargs)
@@ -101,6 +124,179 @@ class ResearcherHH:
 		print("[INFO]: Данные подготовлены в формате JSON.")
 		return json.loads(json_data)
 	
+	def _generate_salary_plot(self, df) -> Tuple[plt.Figure, Dict[str, plt.Axes]]:
+		"""Создает и возвращает график зарплат"""
+		fig, axs = plt.subplots(2, 2, figsize=(12, 8))
+		axes = {'box': axs[0, 0], 'swarm': axs[0, 1], 'from_hist': axs[1, 0], 'to_hist': axs[1, 1]}
+		plt.suptitle("Salary Analysis")
+		
+		sns.boxplot(data=df[["From", "To"]].dropna() / 1000, width=0.4, ax=axes['box'])
+		axes['box'].set_title("From / To: Boxplot")
+		axes['box'].set_ylabel("Salary x 1000 [RUB]")
+		
+		sns.swarmplot(data=df[["From", "To"]].dropna() / 1000, size=6, ax=axes['swarm'])
+		axes['swarm'].set_title("From / To: Swarmplot")
+		
+		sns.histplot(df["From"].dropna() / 1000, bins=14, color="C0", kde=True, ax=axes['from_hist'])
+		axes['from_hist'].set_title("From: Distribution")
+		axes['from_hist'].grid(True)
+		axes['from_hist'].set_xlabel("Salary x 1000 [RUB]")
+		axes['from_hist'].set_xlim([-50, df["From"].max() / 1000])
+		axes['from_hist'].set_yticks([])
+		
+		sns.histplot(df["To"].dropna() / 1000, bins=14, color="C1", kde=True, ax=axes['to_hist'])
+		axes['to_hist'].set_title("To: Distribution")
+		axes['to_hist'].grid(True)
+		axes['to_hist'].set_xlim([-50, df["To"].max() / 1000])
+		axes['to_hist'].set_xlabel("Salary x 1000 [RUB]")
+		axes['to_hist'].set_yticks([])
+		
+		plt.tight_layout()
+		return fig, axes
+	
+	def get_statistics(self, output_dir: str = None, save_plots: bool = True, include_base64: bool = False) -> Dict:
+		"""Собирает статистику по вакансиям и возвращает её в виде словаря.
+		При необходимости сохраняет графики в файлы.
+
+		Parameters
+		----------
+		output_dir : str, optional
+			Директория для сохранения графиков, по умолчанию используется 
+			директория кэша
+		save_plots : bool, optional
+			Флаг сохранения графиков, по умолчанию True
+		include_base64 : bool, optional
+			Включить графики в формате base64 в ответ, по умолчанию False
+
+		Returns
+		-------
+		Dict
+			Словарь со статистикой, содержащий следующие ключи:
+			- vacancy_count: общее количество вакансий
+			- salary_stats: статистика по зарплатам (min, max, mean, median)
+			- top_keywords: наиболее часто встречающиеся ключевые навыки
+			- top_description_words: наиболее часто встречающиеся слова в описаниях
+			- plot_paths: пути к сохраненным графикам (если save_plots=True)
+			- plot_images: графики в формате base64 (если include_base64=True)
+		"""
+		print("[INFO]: Сбор вакансий для анализа...")
+		vacancies = self.collector.collect_vacancies(
+			query=self.settings.options,
+			refresh=self.settings.refresh,
+			num_workers=self.settings.num_workers
+		)
+		print("[INFO]: Подготовка DataFrame...")
+		df = self.analyzer.prepare_df(vacancies)
+		
+		# Подготовка директории для графиков
+		if save_plots:
+			if output_dir is None:
+				output_dir = os.path.join(CACHE_DIR, "plots")
+			os.makedirs(output_dir, exist_ok=True)
+		
+		# Собираем статистику
+		statistics = {}
+		statistics["vacancy_count"] = df["Ids"].count()
+		
+		# Статистика по зарплатам
+		salary_stats = {}
+		comb_ft = np.nanmean(df[df["Salary"]][["From", "To"]].to_numpy(), axis=1)
+		salary_stats["min"] = int(np.min(comb_ft))
+		salary_stats["max"] = int(np.max(comb_ft))
+		salary_stats["mean"] = int(np.mean(comb_ft))
+		salary_stats["median"] = int(np.median(comb_ft))
+		
+		# Добавляем статистические показатели
+		df_stat = df[["From", "To"]].describe().applymap(np.int32)
+		for col in ["From", "To"]:
+			salary_stats[f"{col.lower()}_stats"] = {
+				"min": int(df_stat.loc["min", col]),
+				"max": int(df_stat.loc["max", col]),
+				"mean": int(df_stat.loc["mean", col]),
+				"median": int(df_stat.loc["50%", col])
+			}
+		
+		statistics["salary_stats"] = salary_stats
+		
+		# Топ ключевых слов
+		most_keys = self.analyzer.find_top_words_from_keys(df["Keys"].to_list())
+		statistics["top_keywords"] = most_keys[:20].to_dict()
+		
+		# Топ слов из описаний
+		most_words = self.analyzer.find_top_words_from_description(df["Description"].to_list())
+		statistics["top_description_words"] = most_words[:20].to_dict()
+		
+		# Работа с графиками
+		plot_paths = {}
+		plot_images = {}
+		
+		# График 1: Boxplot и Swarmplot
+		fig1, _ = self._generate_salary_plot(df)
+		
+		if include_base64:
+			# Сохраняем график зарплаты в base64
+			buffer = io.BytesIO()
+			fig1.savefig(buffer, format='png')
+			buffer.seek(0)
+			plot_images["salary_analysis"] = base64.b64encode(buffer.getvalue()).decode('utf-8')
+		
+		if save_plots:
+			salary_plot_path = os.path.join(output_dir, "salary_analysis.png")
+			fig1.savefig(salary_plot_path)
+			plot_paths["salary_analysis"] = salary_plot_path
+		
+		plt.close(fig1)
+		
+		# График 2: Топ ключевых слов
+		fig2, ax = plt.subplots(figsize=(10, 6))
+		most_keys[:15].plot(kind='bar', ax=ax)
+		ax.set_title("Top Keywords")
+		ax.set_ylabel("Frequency")
+		ax.set_xlabel("Keywords")
+		plt.tight_layout()
+		
+		if include_base64:
+			buffer = io.BytesIO()
+			fig2.savefig(buffer, format='png')
+			buffer.seek(0)
+			plot_images["top_keywords"] = base64.b64encode(buffer.getvalue()).decode('utf-8')
+		
+		if save_plots:
+			keywords_plot_path = os.path.join(output_dir, "top_keywords.png")
+			fig2.savefig(keywords_plot_path)
+			plot_paths["top_keywords"] = keywords_plot_path
+		
+		plt.close(fig2)
+		
+		# График 3: Топ слов из описаний
+		fig3, ax = plt.subplots(figsize=(10, 6))
+		most_words[:15].plot(kind='bar', ax=ax)
+		ax.set_title("Top Words from Description")
+		ax.set_ylabel("Frequency")
+		ax.set_xlabel("Words")
+		plt.tight_layout()
+		
+		if include_base64:
+			buffer = io.BytesIO()
+			fig3.savefig(buffer, format='png')
+			buffer.seek(0)
+			plot_images["top_description_words"] = base64.b64encode(buffer.getvalue()).decode('utf-8')
+		
+		if save_plots:
+			words_plot_path = os.path.join(output_dir, "top_description_words.png")
+			fig3.savefig(words_plot_path)
+			plot_paths["top_description_words"] = words_plot_path
+		
+		plt.close(fig3)
+		
+		if save_plots:
+			statistics["plot_paths"] = plot_paths
+		
+		if include_base64:
+			statistics["plot_images"] = plot_images
+		
+		return _to_builtin_type(statistics)
+	
 	def __call__(self):
 		print("[INFO]: Collect data from JSON. Create list of vacancies...")
 		vacancies = self.collector.collect_vacancies(
@@ -124,4 +320,5 @@ if __name__ == "__main__":
 		"per_page": 10,
 	})
 	hh_analyzer.update()
-	hh_analyzer()
+	# hh_analyzer()
+	print(hh_analyzer.get_statistics(include_base64=True))
