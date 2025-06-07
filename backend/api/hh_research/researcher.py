@@ -125,35 +125,39 @@ class ResearcherHH:
 		return json.loads(json_data)
 	
 	def _generate_salary_plot(self, df) -> Tuple[plt.Figure, Dict[str, plt.Axes]]:
-		"""Создает и возвращает график зарплат"""
-		fig, axs = plt.subplots(2, 2, figsize=(12, 8))
-		axes = {'box': axs[0, 0], 'swarm': axs[0, 1], 'from_hist': axs[1, 0], 'to_hist': axs[1, 1]}
-		plt.suptitle("Salary Analysis")
-		
-		sns.boxplot(data=df[["From", "To"]].dropna() / 1000, width=0.4, ax=axes['box'])
-		axes['box'].set_title("From / To: Boxplot")
-		axes['box'].set_ylabel("Salary x 1000 [RUB]")
-		
-		sns.swarmplot(data=df[["From", "To"]].dropna() / 1000, size=6, ax=axes['swarm'])
-		axes['swarm'].set_title("From / To: Swarmplot")
-		
+		"""Создает и возвращает графики распределения зарплат From, To и Avg"""
+		fig, axs = plt.subplots(1, 3, figsize=(18, 5))
+		axes = {'from_hist': axs[0], 'to_hist': axs[1], 'avg_hist': axs[2]}
+		plt.suptitle("Salary Distribution")
+
 		sns.histplot(df["From"].dropna() / 1000, bins=14, color="C0", kde=True, ax=axes['from_hist'])
 		axes['from_hist'].set_title("From: Distribution")
 		axes['from_hist'].grid(True)
 		axes['from_hist'].set_xlabel("Salary x 1000 [RUB]")
 		axes['from_hist'].set_xlim([-50, df["From"].max() / 1000])
 		axes['from_hist'].set_yticks([])
-		
+
 		sns.histplot(df["To"].dropna() / 1000, bins=14, color="C1", kde=True, ax=axes['to_hist'])
 		axes['to_hist'].set_title("To: Distribution")
 		axes['to_hist'].grid(True)
 		axes['to_hist'].set_xlim([-50, df["To"].max() / 1000])
 		axes['to_hist'].set_xlabel("Salary x 1000 [RUB]")
 		axes['to_hist'].set_yticks([])
-		
+
+		# Новый график: распределение средней зарплаты (avg)
+		avg_salary = df[["From", "To"]].dropna()
+		avg_salary = avg_salary.mean(axis=1) / 1000
+		sns.histplot(avg_salary, bins=14, color="C2", kde=True, ax=axes['avg_hist'])
+		axes['avg_hist'].set_title("Avg: Distribution")
+		axes['avg_hist'].grid(True)
+		axes['avg_hist'].set_xlabel("Salary x 1000 [RUB]")
+		if not avg_salary.empty:
+			axes['avg_hist'].set_xlim([-50, avg_salary.max()])
+		axes['avg_hist'].set_yticks([])
+
 		plt.tight_layout()
 		return fig, axes
-	
+
 	def get_statistics(self, output_dir: str = None, save_plots: bool = True, include_base64: bool = False) -> Dict:
 		"""Собирает статистику по вакансиям и возвращает её в виде словаря.
 		При необходимости сохраняет графики в файлы.
@@ -230,64 +234,21 @@ class ResearcherHH:
 		plot_paths = {}
 		plot_images = {}
 		
-		# График 1: Boxplot и Swarmplot
+		 # Оставляем только гистограммы From и To
 		fig1, _ = self._generate_salary_plot(df)
-		
+
 		if include_base64:
-			# Сохраняем график зарплаты в base64
 			buffer = io.BytesIO()
 			fig1.savefig(buffer, format='png')
 			buffer.seek(0)
-			plot_images["salary_analysis"] = base64.b64encode(buffer.getvalue()).decode('utf-8')
-		
+			plot_images["salary_distribution"] = base64.b64encode(buffer.getvalue()).decode('utf-8')
+
 		if save_plots:
-			salary_plot_path = os.path.join(output_dir, "salary_analysis.png")
+			salary_plot_path = os.path.join(output_dir, "salary_distribution.png")
 			fig1.savefig(salary_plot_path)
-			plot_paths["salary_analysis"] = salary_plot_path
-		
+			plot_paths["salary_distribution"] = salary_plot_path
+
 		plt.close(fig1)
-		
-		# График 2: Топ ключевых слов
-		fig2, ax = plt.subplots(figsize=(10, 6))
-		most_keys[:15].plot(kind='bar', ax=ax)
-		ax.set_title("Top Keywords")
-		ax.set_ylabel("Frequency")
-		ax.set_xlabel("Keywords")
-		plt.tight_layout()
-		
-		if include_base64:
-			buffer = io.BytesIO()
-			fig2.savefig(buffer, format='png')
-			buffer.seek(0)
-			plot_images["top_keywords"] = base64.b64encode(buffer.getvalue()).decode('utf-8')
-		
-		if save_plots:
-			keywords_plot_path = os.path.join(output_dir, "top_keywords.png")
-			fig2.savefig(keywords_plot_path)
-			plot_paths["top_keywords"] = keywords_plot_path
-		
-		plt.close(fig2)
-		
-		# График 3: Топ слов из описаний
-		fig3, ax = plt.subplots(figsize=(10, 6))
-		most_words[:15].plot(kind='bar', ax=ax)
-		ax.set_title("Top Words from Description")
-		ax.set_ylabel("Frequency")
-		ax.set_xlabel("Words")
-		plt.tight_layout()
-		
-		if include_base64:
-			buffer = io.BytesIO()
-			fig3.savefig(buffer, format='png')
-			buffer.seek(0)
-			plot_images["top_description_words"] = base64.b64encode(buffer.getvalue()).decode('utf-8')
-		
-		if save_plots:
-			words_plot_path = os.path.join(output_dir, "top_description_words.png")
-			fig3.savefig(words_plot_path)
-			plot_paths["top_description_words"] = words_plot_path
-		
-		plt.close(fig3)
 		
 		if save_plots:
 			statistics["plot_paths"] = plot_paths
