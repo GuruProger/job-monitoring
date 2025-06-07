@@ -58,19 +58,22 @@ SETTINGS_PATH = "settings.json"
 class ResearcherHH:
 	"""Main class for searching vacancies and analyze them."""
 	
-	def __init__(self, config_path: str = SETTINGS_PATH, no_parse: bool = False):
-		self.settings = Settings(config_path, no_parse=no_parse)
-		self.exchanger = Exchanger(config_path)
+	def __init__(
+			self, options: dict, refresh: bool, num_workers: int, save_result: bool, rates: dict
+	):
+		self.settings = Settings(
+			options=options, refresh=refresh, num_workers=num_workers, save_result=save_result, rates=rates
+		)
+		self.exchanger = Exchanger()
 		self.collector: Optional[DataCollector] = None
 		self.analyzer: Optional[Analyzer] = None
 		self.predictor = Predictor()
 	
 	def update(self, **kwargs):
 		self.settings.update_params(**kwargs)
-		if not any(self.settings.rates.values()) or self.settings.update:
+		if not any(self.settings.rates.values()):
 			print("[INFO]: Trying to get exchange rates from remote server...")
 			self.exchanger.update_exchange_rates(self.settings.rates)
-			self.exchanger.save_rates(self.settings.rates)
 		
 		print(f"[INFO]: Get exchange rates: {self.settings.rates}")
 		self.collector = DataCollector(self.settings.rates)
@@ -110,12 +113,22 @@ class ResearcherHH:
 
 
 if __name__ == "__main__":
-	hh_analyzer = ResearcherHH()
+	hh_analyzer = ResearcherHH(
+		options={
+			"text": "Python",
+			"area": 1,
+			"per_page": 50,
+			"professional_roles": [96, 10]
+		},
+		refresh=False,
+		num_workers=10,
+		save_result=False,
+		rates={
+			"USD": 0.012641,
+			"EUR": 0.010831,
+			"UAH": 0.35902,
+			"RUB": 1
+		}
+	)
 	hh_analyzer.update()
 	hh_analyzer()
-	
-	# Получение данных в формате JSON
-	json_data = hh_analyzer.get_json()
-	
-	print(json_data)
-	print(len( json_data))  # Выводим длину JSON данных для проверки

@@ -53,7 +53,7 @@ class DataCollector:
     Parameters
     ----------
     exchange_rates : dict
-        Dict of exchange rates: RUR, USD, EUR.
+        Dict of exchange rates: RUB, USD, EUR.
 
     """
     __API_BASE_URL = "https://api.hh.ru/vacancies/"
@@ -208,7 +208,7 @@ class DataCollector:
 
 
 if __name__ == "__main__":
-    dc = DataCollector(exchange_rates={"USD": 0.01264, "EUR": 0.01083, "RUR": 1.00000})
+    dc = DataCollector(exchange_rates={"USD": 0.01264, "EUR": 0.01083, "RUB": 1.00000})
 
     vacancies = dc.collect_vacancies(
         query={"text": "FPGA", "area": 1, "per_page": 50},
