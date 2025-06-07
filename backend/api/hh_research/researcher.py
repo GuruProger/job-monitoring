@@ -56,42 +56,66 @@ SETTINGS_PATH = "settings.json"
 
 
 class ResearcherHH:
-    """Main class for searching vacancies and analyze them."""
-
-    def __init__(self, config_path: str = SETTINGS_PATH, no_parse: bool = False):
-        self.settings = Settings(config_path, no_parse=no_parse)
-        self.exchanger = Exchanger(config_path)
-        self.collector: Optional[DataCollector] = None
-        self.analyzer: Optional[Analyzer] = None
-        self.predictor = Predictor()
-
-    def update(self, **kwargs):
-        self.settings.update_params(**kwargs)
-        if not any(self.settings.rates.values()) or self.settings.update:
-            print("[INFO]: Trying to get exchange rates from remote server...")
-            self.exchanger.update_exchange_rates(self.settings.rates)
-            self.exchanger.save_rates(self.settings.rates)
-
-        print(f"[INFO]: Get exchange rates: {self.settings.rates}")
-        self.collector = DataCollector(self.settings.rates)
-        self.analyzer = Analyzer(self.settings.save_result)
-
-    def __call__(self):
-        print("[INFO]: Collect data from JSON. Create list of vacancies...")
-        vacancies = self.collector.collect_vacancies(
-            query=self.settings.options, refresh=self.settings.refresh, num_workers=self.settings.num_workers
-        )
-        print("[INFO]: Prepare dataframe...")
-        df = self.analyzer.prepare_df(vacancies)
-        print("\n[INFO]: Analyze dataframe...")
-        self.analyzer.analyze_df(df)
-        print("\n[INFO]: Predict None salaries...")
-        # total_df = self.predictor.predict(df)
-        # self.predictor.plot_results(total_df)
-        print("[INFO]: Done! Exit()")
+	"""Main class for searching vacancies and analyze them."""
+	
+	def __init__(self, config_path: str = SETTINGS_PATH, no_parse: bool = False):
+		self.settings = Settings(config_path, no_parse=no_parse)
+		self.exchanger = Exchanger(config_path)
+		self.collector: Optional[DataCollector] = None
+		self.analyzer: Optional[Analyzer] = None
+		self.predictor = Predictor()
+	
+	def update(self, **kwargs):
+		self.settings.update_params(**kwargs)
+		if not any(self.settings.rates.values()) or self.settings.update:
+			print("[INFO]: Trying to get exchange rates from remote server...")
+			self.exchanger.update_exchange_rates(self.settings.rates)
+			self.exchanger.save_rates(self.settings.rates)
+		
+		print(f"[INFO]: Get exchange rates: {self.settings.rates}")
+		self.collector = DataCollector(self.settings.rates)
+		self.analyzer = Analyzer(self.settings.save_result)
+	
+	def get_json(self, limit: Optional[int] = 500):
+		"""Возвращает данные вакансий в формате JSON с ограничением по количеству."""
+		print("[INFO]: Сбор данных для JSON...")
+		vacancies = self.collector.collect_vacancies(
+			query=self.settings.options, refresh=self.settings.refresh, num_workers=self.settings.num_workers
+		)
+		print("[INFO]: Подготовка DataFrame...")
+		df = self.analyzer.prepare_df(vacancies)
+		
+		if limit is not None:
+			df = df.head(limit)  # Ограничиваем количество строк в DataFrame
+		
+		json_data = df.to_json(orient="records", indent=4, force_ascii=False)
+		print("[INFO]: Данные подготовлены в формате JSON.")
+		return json_data
+	
+	def __call__(self):
+		print("[INFO]: Collect data from JSON. Create list of vacancies...")
+		vacancies = self.collector.collect_vacancies(
+			query=self.settings.options, refresh=self.settings.refresh, num_workers=self.settings.num_workers
+		)
+		print("[INFO]: Prepare dataframe...")
+		df = self.analyzer.prepare_df(vacancies)
+		# df.to_csv(os.path.join(CACHE_DIR, "vacancies.csv"))
+		# json_data = df.to_json(orient="records", indent=4, force_ascii=False)
+		print("\n[INFO]: Analyze dataframe...")
+		self.analyzer.analyze_df(df)
+		print("\n[INFO]: Predict None salaries...")
+		# total_df = self.predictor.predict(df)
+		# self.predictor.plot_results(total_df)
+		print("[INFO]: Done! Exit()")
 
 
 if __name__ == "__main__":
-    hh_analyzer = ResearcherHH()
-    hh_analyzer.update()
-    hh_analyzer()
+	hh_analyzer = ResearcherHH()
+	hh_analyzer.update()
+	hh_analyzer()
+	
+	# Получение данных в формате JSON
+	json_data = hh_analyzer.get_json()
+	
+	print(json_data)
+	print(len( json_data))  # Выводим длину JSON данных для проверки
