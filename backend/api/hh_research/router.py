@@ -11,6 +11,7 @@ EXPERIENCE_MAPPING = {
 	"moreThan6": "Более 6 лет"
 }
 
+
 # @router.get("/get_vacancies", status_code=status.HTTP_201_CREATED)
 # async def get_vacancies(
 # 		text: str = Query(..., description="Поисковый запрос для вакансий"),
@@ -129,3 +130,8 @@ async def get_statistics(
 			status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
 			detail=f"Ошибка при обработке статистики: {str(e)}"
 		)
+
+
+@router.get("/status", status_code=status.HTTP_200_OK)
+async def status():
+	return {'status': 'ok'}
