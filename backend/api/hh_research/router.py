@@ -1,6 +1,7 @@
 from typing import Annotated, Sequence, List, Optional, Dict
 from fastapi import APIRouter, Depends, status, Query, HTTPException
 from .researcher import ResearcherHH
+from .src.city_validator import find_city_id
 
 router = APIRouter(tags=["hh"])
 
@@ -36,7 +37,7 @@ EXPERIENCE_MAPPING = {
 @router.get("/get_statistics", status_code=status.HTTP_200_OK)
 async def get_statistics(
 		text: str = Query(..., description="Поисковый запрос для статистики"),
-		area: int = Query(1, description="Локация поискового запроса"),
+		area: str = Query('Москва', description="Локация поискового запроса"),
 		per_page: int = Query(50, description="Количество вакансий на страницу"),
 		refresh: bool = Query(False, description="Обновление кешируемых данных"),
 		include_plots: bool = Query(True, description="Включить графики в формате base64 в ответ"),
@@ -61,7 +62,7 @@ async def get_statistics(
 
 	Параметры:
 	- text: поисковый запрос для вакансий
-	- area: локация поискового запроса (по умолчанию 1 - Москва)
+	- area: локация поискового запроса (по умолчанию Москва)
 	- per_page: количество вакансий на страницу
 	- refresh: обновление кешируемых данных
 	- include_plots: включать ли графики в формате base64 в ответ
@@ -84,10 +85,11 @@ async def get_statistics(
 	- filters: примененные фильтры
 	"""
 	try:
+		area_id = find_city_id(area) or '1'
 		# Подготовка параметров для ResearcherHH
 		options = {
 			"text": text,
-			"area": area,
+			"area": find_city_id,
 			"per_page": per_page,
 			"professional_roles": [0]
 		}
@@ -125,6 +127,7 @@ async def get_statistics(
 			statistics['plot_images'] = filtered_images
 		
 		return statistics
+
 	except Exception as e:
 		raise HTTPException(
 			status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
