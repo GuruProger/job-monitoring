@@ -33,9 +33,6 @@ async def get_statistics(
 		text: str = Query(..., description="Поисковый запрос для статистики"),
 		area: int = Query(1, description="Локация поискового запроса"),
 		per_page: int = Query(50, description="Количество вакансий на страницу"),
-		professional_roles: Sequence[int] = Query(
-			[96, 10], description="Фильтр по роли в запросе"
-		),
 		refresh: bool = Query(False, description="Обновление кешируемых данных"),
 		include_plots: bool = Query(True, description="Включить графики в формате base64 в ответ"),
 		limit: int = Query(None, description="Ограничение количества вакансий для анализа")
@@ -64,7 +61,7 @@ async def get_statistics(
 			"text": text,
 			"area": area,
 			"per_page": per_page,
-			"professional_roles": professional_roles
+			"professional_roles": [0]
 		}, refresh=refresh)
 		hh_analyzer.update()
 		

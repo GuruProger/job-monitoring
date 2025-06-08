@@ -95,12 +95,12 @@ class DataCollector:
 
     @staticmethod
     def __encode_query_for_url(query: Optional[Dict]) -> str:
-        if 'professional_roles' in query:
-            query_copy = query.copy()
-
-            roles = '&'.join([f'professional_role={r}' for r in query_copy.pop('professional_roles')])
-
-            return roles + (f'&{urlencode(query_copy)}' if len(query_copy) > 0 else '')
+        # if 'professional_roles' in query:
+        #     query_copy = query.copy()
+        #
+        #     roles = '&'.join([f'professional_role={r}' for r in query_copy.pop('professional_roles')])
+        #
+        #     return roles + (f'&{urlencode(query_copy)}' if len(query_copy) > 0 else '')
 
         return urlencode(query)
 

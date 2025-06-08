@@ -54,6 +54,7 @@ class ResearcherHH:
 		self.settings = Settings(
 			options=options, refresh=refresh, num_workers=num_workers, save_result=save_result, rates=rates
 		)
+		print(self.settings)
 	
 		self.exchanger = Exchanger()
 		self.collector: Optional[DataCollector] = None
