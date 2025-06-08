@@ -27,7 +27,7 @@ def _to_builtin_type(obj: Any) -> Any:
 	if isinstance(obj, dict):
 		return {k: _to_builtin_type(v) for k, v in obj.items()}
 	elif isinstance(obj, (list, tuple)):
-		return [ _to_builtin_type(v) for v in obj ]
+		return [_to_builtin_type(v) for v in obj]
 	elif isinstance(obj, (np.integer, np.int_, np.intc, np.intp, np.int8, np.int16, np.int32, np.int64)):
 		return int(obj)
 	# Исправлено: np.float_ заменено на np.float64
@@ -55,7 +55,7 @@ class ResearcherHH:
 			options=options, refresh=refresh, num_workers=num_workers, save_result=save_result, rates=rates
 		)
 		print(self.settings)
-	
+		
 		self.exchanger = Exchanger()
 		self.collector: Optional[DataCollector] = None
 		self.analyzer: Optional[Analyzer] = None
@@ -92,21 +92,21 @@ class ResearcherHH:
 		fig, axs = plt.subplots(1, 3, figsize=(18, 5))
 		axes = {'from_hist': axs[0], 'to_hist': axs[1], 'avg_hist': axs[2]}
 		plt.suptitle("Salary Distribution")
-
+		
 		sns.histplot(df["From"].dropna() / 1000, bins=14, color="C0", kde=True, ax=axes['from_hist'])
 		axes['from_hist'].set_title("From: Distribution")
 		axes['from_hist'].grid(True)
 		axes['from_hist'].set_xlabel("Salary x 1000 [RUB]")
 		axes['from_hist'].set_xlim([-50, df["From"].max() / 1000])
 		axes['from_hist'].set_yticks([])
-
+		
 		sns.histplot(df["To"].dropna() / 1000, bins=14, color="C1", kde=True, ax=axes['to_hist'])
 		axes['to_hist'].set_title("To: Distribution")
 		axes['to_hist'].grid(True)
 		axes['to_hist'].set_xlim([-50, df["To"].max() / 1000])
 		axes['to_hist'].set_xlabel("Salary x 1000 [RUB]")
 		axes['to_hist'].set_yticks([])
-
+		
 		# Новый график: распределение средней зарплаты (avg)
 		avg_salary = df[["From", "To"]].dropna()
 		avg_salary = avg_salary.mean(axis=1) / 1000
@@ -117,10 +117,10 @@ class ResearcherHH:
 		if not avg_salary.empty:
 			axes['avg_hist'].set_xlim([-50, avg_salary.max()])
 		axes['avg_hist'].set_yticks([])
-
+		
 		plt.tight_layout()
 		return fig, axes
-
+	
 	def _generate_salary_plots(self, df) -> Dict[str, plt.Figure]:
 		"""Создает и возвращает отдельные графики распределения зарплат From, To и Avg"""
 		plots = {}
@@ -165,8 +165,14 @@ class ResearcherHH:
 		plots['avg_hist'] = fig_avg
 		
 		return plots
-
-	def get_statistics(self, output_dir: str = None, save_plots: bool = True, include_base64: bool = False, limit: Optional[int] = None) -> Dict:
+	
+	def get_statistics(
+			self,
+			output_dir: str = None, save_plots: bool = True, include_base64: bool = False, limit: Optional[int] = None,
+			experience: Optional[List[str]] = None,
+			age: Optional[List[int]] = None,
+			key_skills: Optional[List[str]] = None,
+	) -> Dict:
 		"""Собирает статистику по вакансиям и возвращает её в виде словаря.
 		При необходимости сохраняет графики в файлы.
 
@@ -254,12 +260,12 @@ class ResearcherHH:
 				fig.savefig(buffer, format='png')
 				buffer.seek(0)
 				plot_images[plot_name] = base64.b64encode(buffer.getvalue()).decode('utf-8')
-
+			
 			if save_plots:
 				plot_path = os.path.join(output_dir, f"{plot_name}.png")
 				fig.savefig(plot_path)
 				plot_paths[plot_name] = plot_path
-
+			
 			plt.close(fig)
 		
 		if save_plots:

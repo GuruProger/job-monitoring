@@ -99,7 +99,7 @@ class Analyzer:
         df = pd.DataFrame.from_dict(vacancies)
         # Print some info from data frame
         with pd.option_context("display.max_rows", None, "display.max_columns", None):
-            print(df[df["Salary"]][["Employer", "From", "To", "Experience"]][0:15])
+            print(df[df["Salary"]][["Employer", "From", "To"]][0:15])
         # Save to file
         if self.save_csv:
             print("\n\n[INFO]: Save dataframe to file...")
