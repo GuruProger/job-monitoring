@@ -4,14 +4,6 @@
 Скрипт использует API hh.ru для доступа к данным вакансий.
 
 ### Общая информация
-
-| **Title**     | HeadHunter Find & Research    |
-| :--           | :--                           |
-| **Author**    | Alexander Kapitanov           |
-| **Language**  | Python (3+)                   |
-| **Release**   | 14 Aug 2019                   |
-| **License**   | GNU GPL 3.0                   |
-
 ![Example Data Frame](img/prev_table.png "Example Data Frame")
 
 ____

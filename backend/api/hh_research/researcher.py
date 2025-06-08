@@ -1,41 +1,3 @@
-"""Head Hunter Researcher
-
-Description   :
-    HeadHunter (hh.ru) main research script.
-
-    1. Get data from hh.ru by user request (i.e. 'Machine learning')
-    2. Collect all vacancies.
-    3. Parse JSON and get useful values: salary, experience, name,
-    skills, employer name etc.
-    4. Calculate some statistics: average salary, median, std, variance.
-
-------------------------------------------------------------------------
-
-GNU GENERAL PUBLIC LICENSE
-Version 3, 29 June 2007
-
-Copyright (c) 2020 Kapitanov Alexander
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
-APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
-HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT
-WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT
-NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-FOR A PARTICULAR PURPOSE. THE ENTIRE RISK AS TO THE QUALITY AND
-PERFORMANCE OF THE PROGRAM IS WITH YOU. SHOULD THE PROGRAM PROVE
-DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY SERVICING, REPAIR OR
-OR CORRECTION.
-
-------------------------------------------------------------------------
-"""
 import json
 import base64
 import io
@@ -108,21 +70,21 @@ class ResearcherHH:
 		self.collector = DataCollector(self.settings.rates)
 		self.analyzer = Analyzer(self.settings.save_result)
 	
-	def get_vacancies(self, limit: Optional[int] = 500, filters: Optional[dict] = None):
-		"""Возвращает данные вакансий в формате dict (JSON) с ограничением по количеству и фильтрами."""
-		print("[INFO]: Сбор данных для JSON...")
-		vacancies = self.collector.collect_vacancies(
-			query=self.settings.options,
-			refresh=self.settings.refresh,
-			num_workers=self.settings.num_workers,
-			filters=filters,
-			limit=limit
-		)
-		print("[INFO]: Подготовка DataFrame...")
-		df = self.analyzer.prepare_df(vacancies)
-		json_data = df.to_json(orient="records", force_ascii=False)
-		print("[INFO]: Данные подготовлены в формате JSON.")
-		return json.loads(json_data)
+	# def get_vacancies(self, limit: Optional[int] = 500, filters: Optional[dict] = None):
+	# 	"""Возвращает данные вакансий в формате dict (JSON) с ограничением по количеству и фильтрами."""
+	# 	print("[INFO]: Сбор данных для JSON...")
+	# 	vacancies = self.collector.collect_vacancies(
+	# 		query=self.settings.options,
+	# 		refresh=self.settings.refresh,
+	# 		num_workers=self.settings.num_workers,
+	# 		filters=filters,
+	# 		limit=limit
+	# 	)
+	# 	print("[INFO]: Подготовка DataFrame...")
+	# 	df = self.analyzer.prepare_df(vacancies)
+	# 	json_data = df.to_json(orient="records", force_ascii=False)
+	# 	print("[INFO]: Данные подготовлены в формате JSON.")
+	# 	return json.loads(json_data)
 	
 	def _generate_salary_plot(self, df) -> Tuple[plt.Figure, Dict[str, plt.Axes]]:
 		"""Создает и возвращает графики распределения зарплат From, To и Avg"""
@@ -158,7 +120,7 @@ class ResearcherHH:
 		plt.tight_layout()
 		return fig, axes
 
-	def get_statistics(self, output_dir: str = None, save_plots: bool = True, include_base64: bool = False) -> Dict:
+	def get_statistics(self, output_dir: str = None, save_plots: bool = True, include_base64: bool = False, limit: Optional[int] = None) -> Dict:
 		"""Собирает статистику по вакансиям и возвращает её в виде словаря.
 		При необходимости сохраняет графики в файлы.
 
@@ -171,6 +133,8 @@ class ResearcherHH:
 			Флаг сохранения графиков, по умолчанию True
 		include_base64 : bool, optional
 			Включить графики в формате base64 в ответ, по умолчанию False
+		limit : int, optional
+			Ограничение количества вакансий для анализа
 
 		Returns
 		-------
@@ -187,7 +151,8 @@ class ResearcherHH:
 		vacancies = self.collector.collect_vacancies(
 			query=self.settings.options,
 			refresh=self.settings.refresh,
-			num_workers=self.settings.num_workers
+			num_workers=self.settings.num_workers,
+			limit=limit  # Передаем limit в collect_vacancies
 		)
 		print("[INFO]: Подготовка DataFrame...")
 		df = self.analyzer.prepare_df(vacancies)
