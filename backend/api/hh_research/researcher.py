@@ -121,6 +121,51 @@ class ResearcherHH:
 		plt.tight_layout()
 		return fig, axes
 
+	def _generate_salary_plots(self, df) -> Dict[str, plt.Figure]:
+		"""Создает и возвращает отдельные графики распределения зарплат From, To и Avg"""
+		plots = {}
+		
+		# График распределения From
+		fig_from = plt.figure(figsize=(10, 6))
+		ax_from = fig_from.add_subplot(1, 1, 1)
+		sns.histplot(df["From"].dropna() / 1000, bins=14, color="C0", kde=True, ax=ax_from)
+		ax_from.set_title("From: Distribution")
+		ax_from.grid(True)
+		ax_from.set_xlabel("Salary x 1000 [RUB]")
+		ax_from.set_xlim([-50, df["From"].max() / 1000])
+		ax_from.set_yticks([])
+		fig_from.tight_layout()
+		plots['from_hist'] = fig_from
+		
+		# График распределения To
+		fig_to = plt.figure(figsize=(10, 6))
+		ax_to = fig_to.add_subplot(1, 1, 1)
+		sns.histplot(df["To"].dropna() / 1000, bins=14, color="C1", kde=True, ax=ax_to)
+		ax_to.set_title("To: Distribution")
+		ax_to.grid(True)
+		ax_to.set_xlabel("Salary x 1000 [RUB]")
+		ax_to.set_xlim([-50, df["To"].max() / 1000])
+		ax_to.set_yticks([])
+		fig_to.tight_layout()
+		plots['to_hist'] = fig_to
+		
+		# График распределения Avg
+		fig_avg = plt.figure(figsize=(10, 6))
+		ax_avg = fig_avg.add_subplot(1, 1, 1)
+		avg_salary = df[["From", "To"]].dropna()
+		avg_salary = avg_salary.mean(axis=1) / 1000
+		sns.histplot(avg_salary, bins=14, color="C2", kde=True, ax=ax_avg)
+		ax_avg.set_title("Avg: Distribution")
+		ax_avg.grid(True)
+		ax_avg.set_xlabel("Salary x 1000 [RUB]")
+		if not avg_salary.empty:
+			ax_avg.set_xlim([-50, avg_salary.max()])
+		ax_avg.set_yticks([])
+		fig_avg.tight_layout()
+		plots['avg_hist'] = fig_avg
+		
+		return plots
+
 	def get_statistics(self, output_dir: str = None, save_plots: bool = True, include_base64: bool = False, limit: Optional[int] = None) -> Dict:
 		"""Собирает статистику по вакансиям и возвращает её в виде словаря.
 		При необходимости сохраняет графики в файлы.
@@ -200,21 +245,22 @@ class ResearcherHH:
 		plot_paths = {}
 		plot_images = {}
 		
-		 # Оставляем только гистограммы From и To
-		fig1, _ = self._generate_salary_plot(df)
+		# Генерируем отдельные графики
+		figures = self._generate_salary_plots(df)
+		
+		for plot_name, fig in figures.items():
+			if include_base64:
+				buffer = io.BytesIO()
+				fig.savefig(buffer, format='png')
+				buffer.seek(0)
+				plot_images[plot_name] = base64.b64encode(buffer.getvalue()).decode('utf-8')
 
-		if include_base64:
-			buffer = io.BytesIO()
-			fig1.savefig(buffer, format='png')
-			buffer.seek(0)
-			plot_images["salary_distribution"] = base64.b64encode(buffer.getvalue()).decode('utf-8')
+			if save_plots:
+				plot_path = os.path.join(output_dir, f"{plot_name}.png")
+				fig.savefig(plot_path)
+				plot_paths[plot_name] = plot_path
 
-		if save_plots:
-			salary_plot_path = os.path.join(output_dir, "salary_distribution.png")
-			fig1.savefig(salary_plot_path)
-			plot_paths["salary_distribution"] = salary_plot_path
-
-		plt.close(fig1)
+			plt.close(fig)
 		
 		if save_plots:
 			statistics["plot_paths"] = plot_paths

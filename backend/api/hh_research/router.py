@@ -1,4 +1,4 @@
-from typing import Annotated, Sequence
+from typing import Annotated, Sequence, List
 
 from fastapi import APIRouter, Depends, status, Query, HTTPException
 
@@ -35,18 +35,25 @@ async def get_statistics(
 		per_page: int = Query(50, description="Количество вакансий на страницу"),
 		refresh: bool = Query(False, description="Обновление кешируемых данных"),
 		include_plots: bool = Query(True, description="Включить графики в формате base64 в ответ"),
+		plots: List[str] = Query(
+			None, 
+			description="Список требуемых графиков (from_hist, to_hist, avg_hist). Если не указан, будут возвращены все."
+		),
 		limit: int = Query(None, description="Ограничение количества вакансий для анализа")
 ):
 	"""
-	Возвращает статистику по вакансиям и графики зарплат.
+	Возвращает статистику по вакансиям и отдельные графики зарплат.
 	
 	Параметры:
 	- text: поисковый запрос для вакансий
 	- area: локация поискового запроса (по умолчанию 1 - Москва)
 	- per_page: количество вакансий на страницу
-	- professional_roles: фильтр по профессиональным ролям
 	- refresh: обновление кешируемых данных
 	- include_plots: включать ли графики в формате base64 в ответ
+	- plots: список требуемых графиков, доступные значения:
+	  * from_hist - гистограмма минимальной зарплаты
+	  * to_hist - гистограмма максимальной зарплаты
+	  * avg_hist - гистограмма средней зарплаты
 	- limit: ограничение количества обрабатываемых вакансий
 	
 	Возвращает словарь с ключами:
@@ -54,7 +61,7 @@ async def get_statistics(
 	- salary_stats: статистика по зарплатам (min, max, mean, median)
 	- top_keywords: наиболее часто встречающиеся ключевые навыки
 	- top_description_words: наиболее часто встречающиеся слова в описаниях
-	- plot_images: графики в формате base64 (если include_plots=True)
+	- plot_images: отдельные графики в формате base64 (если include_plots=True)
 	"""
 	try:
 		hh_analyzer = ResearcherHH(options={
@@ -67,10 +74,18 @@ async def get_statistics(
 		
 		# Получаем статистику с графиками в base64
 		statistics = hh_analyzer.get_statistics(
-			save_plots=False,  # Не сохраняем в файл
-			include_base64=include_plots,  # Включаем base64 в ответ, если запрошено
-			limit=limit  # Передаем limit для ограничения количества вакансий
+			save_plots=False,
+			include_base64=include_plots,
+			limit=limit
 		)
+		
+		# Фильтруем графики, если указан параметр plots
+		if include_plots and plots and 'plot_images' in statistics:
+			filtered_images = {}
+			for plot_name in plots:
+				if plot_name in statistics['plot_images']:
+					filtered_images[plot_name] = statistics['plot_images'][plot_name]
+			statistics['plot_images'] = filtered_images
 		
 		return statistics
 	except Exception as e:
